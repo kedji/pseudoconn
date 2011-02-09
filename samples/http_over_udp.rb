@@ -8,4 +8,4 @@ udp.http_transaction(:resource => '/index.html',
                      :status => 500,
                      :res => "Uh, this server doesn't support UDP")
 
-PseudoConn.write_pcap('pc.pcap')
+PseudoConn.write_pcap('sample.pcap')

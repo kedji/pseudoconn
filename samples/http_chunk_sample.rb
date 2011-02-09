@@ -13,4 +13,4 @@ conn.http_transaction(:resource => '/bad.sh',
 
 conn.close
 
-PseudoConn.write_pcap('pc.pcap')
+PseudoConn.write_pcap('sample.pcap')

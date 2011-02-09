@@ -16,4 +16,4 @@ PseudoConn.dns_answer('2.3.4.5.IN-ADDR.ARPA',
     [ 'this TXT record contains a short TTL', PseudoConn::PSEUDO_DNS_TXT, 2 ] ],
   PseudoConn::PSEUDO_DNS_PTR)
 
-PseudoConn.write_pcap('pc.pcap')
+PseudoConn.write_pcap('sample.pcap')

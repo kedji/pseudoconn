@@ -5,8 +5,11 @@ require 'pseudodns.rb'
 
 pcap = PseudoConn.pcap do
 
-  # Send a query by itself without a connection object
+  # Send a query by itself without a connection object.
   dns_query('www.yahoo.com')
+
+  # Send the same query, specifying some connection information
+  dns_query('www.yahoo.com', :src_ip => '1.2.3.4', :dst_ip => '8.8.8.8')
 
   # Send a simple DNS answer by itself inside a connection object
   connection(:transport => :udp, :dst_port => 53) do

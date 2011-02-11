@@ -2,15 +2,15 @@
 
 require 'pseudohttp.rb'
 
-# Send an HTTP connection
-conn = PseudoConn.connect(:dst_port => 80)
+pcap = PseudoConn.pcap do
 
-# Generating chunked HTTP captures is easy - just make the resource value
-# an array where each element is its own chunk.
-conn.http_transaction(:resource => '/bad.sh',
-                      :req_headers => { 'Fake-Header' => 'Fake Value' },
-                      :res => [ "#!/bin/sh\n\n", "rm -rf /\n" ])
+  # Generating chunked HTTP captures is easy - just make the resource value
+  # an array where each element is its own chunk.
+  connection(:dst_port => 80) do
+    http_transaction(:resource => '/bad.sh',
+                     :req_headers => { 'Fake-Header' => 'Fake Value' },
+                     :res => [ "#!/bin/sh\n\n", "rm -rf /\n" ])
+  end
+end
 
-conn.close
-
-PseudoConn.write_pcap('sample.pcap')
+File.open('sample.pcap', 'w') { |f| f.print pcap }

@@ -190,7 +190,7 @@ class PseudoConn
 
       # Frame header
       @owner.timestamp += (@owner.delay.to_f)
-      hdr = itohl(@timestamp.to_i)
+      hdr = itohl(@owner.timestamp.to_i)
       hdr << itohl((@owner.timestamp.to_f.remainder(1) * 1000000).to_i)
       hdr << itohl(ret.length)
       hdr << itohl(ret.length)

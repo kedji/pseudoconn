@@ -24,7 +24,7 @@ class PseudoConn
 
     def http_request(*opt_list)
       opts = DEFAULT_HTTP.dup
-      opt_list.first.each { |k,v| opts[k] = v }
+      (opt_list.first || {}).each { |k,v| opts[k] = v }
 
       # Build our request headers
       req_headers = opts[:req_headers]
@@ -48,7 +48,7 @@ class PseudoConn
 
     def http_response(*opt_list)
       opts = DEFAULT_HTTP.dup
-      opt_list.first.each { |k,v| opts[k] = v }
+      (opt_list.first || {}).each { |k,v| opts[k] = v }
 
       # Deduce chunked encoding
       opts[:chunked] = true if opts[:res].class <= Array

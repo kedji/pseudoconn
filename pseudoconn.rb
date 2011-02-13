@@ -92,10 +92,8 @@ class PseudoConn
       frame(:server, data)
     end
 
-    def sleep(ws)
-      if @opts[:delay]
-        @owner.timestamp += (ms.to_f / 1000)
-      end
+    def sleep(ms)
+      @owner.timestamp += (ms.to_f / 1000)
     end
 
     def frame(direction, data, *flags)
@@ -246,6 +244,10 @@ class PseudoConn
     raise ArgumentError, 'PseudoConn::pcap() block not supplied' unless blk
     pc.instance_eval &blk
     pc.to_pcap
+  end
+
+  def sleep(ms)
+    @timestamp += (ms.to_f / 1000)
   end
 
   def connection(*opts, &blk)

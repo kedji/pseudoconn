@@ -92,8 +92,8 @@ class PseudoConn
       frame(:server, data)
     end
 
-    def sleep(ms)
-      @owner.timestamp += (ms.to_f / 1000)
+    def sleep(sec)
+      @owner.timestamp += sec.to_f
     end
 
     def frame(direction, data, *flags)
@@ -209,8 +209,8 @@ class PseudoConn
     def proto_server(data)
       server(data)
     end
-    def proto_sleep(ms)
-      sleep(ms)
+    def proto_sleep(sec)
+      sleep(sec)
     end  
 
     def itohs(num)
@@ -246,8 +246,8 @@ class PseudoConn
     pc.to_pcap
   end
 
-  def sleep(ms)
-    @timestamp += (ms.to_f / 1000)
+  def sleep(sec)
+    @timestamp += sec.to_f
   end
 
   def connection(*opts, &blk)

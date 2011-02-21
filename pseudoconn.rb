@@ -116,7 +116,7 @@ class PseudoConn
       end
 
       # Ethernet header
-      ret = @mac[src] + @mac[dst] + "\x08\x00"   # src MAC, dst MAC, protocol
+      ret = @mac[dst] + @mac[src] + "\x08\x00"   # src MAC, dst MAC, protocol
 
       # IP header
       payload_len = data.length + (@opts[:transport] == :tcp ? 20 : 8) + 20

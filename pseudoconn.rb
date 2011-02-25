@@ -141,7 +141,7 @@ class PseudoConn
         tf += 0x04 if flags.include?(:rst)
         ret << "\x50#{tf.chr}\x80\x00"          # hdr_len, flags, window
         tcpsum_offset = ret.length
-        ret << "\x00\x00\x00\x00"               # checksum
+        ret << "\x00\x00\x00\x00"               # checksum, URG pointer
         ret << data
 
         # Update the sequence number as needed
@@ -151,10 +151,10 @@ class PseudoConn
         @seq[src] = (@seq[src] + seq_inc) % (2**32)
 
         # TCP Checksum
-        checksum = 6
-        pos = ipsum_offset
+        checksum = 26 + data.length
+        pos = ipsum_offset + 2
         while pos < ret.length do
-          checksum += (ret[pos] << 8) + (ret[pos] || 0)
+          checksum += (ret[pos] << 8) + (ret[pos+1] || 0)
           if checksum > 0xFFFF
             checksum += 1
             checksum &= 0xFFFF

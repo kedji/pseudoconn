@@ -92,7 +92,7 @@ class PseudoConn
       frame(:server, data)
     end
 
-    def sleep(sec)
+    def insert_delay(sec)
       @owner.timestamp += sec.to_f
     end
 
@@ -209,8 +209,8 @@ class PseudoConn
     def proto_server(data)
       server(data)
     end
-    def proto_sleep(sec)
-      sleep(sec)
+    def proto_insert_delay(sec)
+      insert_delay(sec)
     end  
 
     def itohs(num)
@@ -246,7 +246,7 @@ class PseudoConn
     pc.to_pcap
   end
 
-  def sleep(sec)
+  def insert_delay(sec)
     @timestamp += sec.to_f
   end
 

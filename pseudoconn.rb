@@ -14,8 +14,11 @@ class PseudoConn
                  :dst_port => nil, :dst_seq => nil,
                  :src_mac => nil, :dst_mac => nil,
                  :src_ip => "10.0.0.1", :dst_ip => "42.13.37.80" }
+    LCG_A = 1664525
+    LCG_C = 1013904223
 
     def initialize(owner, *opts, &blk)
+      @lcg_x = 0xabcd1337
       @owner = owner
       @opts = merge_opts(DEFAULTS, opts.first)
       choose_sides
@@ -45,12 +48,12 @@ class PseudoConn
 
       # Solidify the option hash in our fledgling object, initializing
       # particular empty values as necessary
-      res[:src_port] ||= rand(30000) + 1025
-      res[:dst_port] ||= rand(30000) + 1025
-      res[:src_seq] ||= rand(2**32)
-      res[:dst_seq] ||= rand(2**32)
-      res[:src_mac] ||= (0..5).to_a.collect { rand(256).chr }.join
-      res[:dst_mac] ||= (0..5).to_a.collect { rand(256).chr }.join
+      res[:src_port] ||= 23456
+      res[:dst_port] ||= 1025
+      res[:src_seq] ||= 0x0FFFFFFF
+      res[:dst_seq] ||= 0x7FFFFFFF
+      res[:src_mac] ||= "AA\0\0BB"
+      res[:dst_mac] ||= "CC\0\0DD"
 
       # Accept IP addresses in dotted-quad notation
       if res[:src_ip].split('.').length == 4
@@ -119,9 +122,10 @@ class PseudoConn
       ret = @mac[dst] + @mac[src] + "\x08\x00"   # src MAC, dst MAC, protocol
 
       # IP header
+      @lcg_x = (LCG_A * @lcg_x + LCG_C) & 0xFFFFFFFF
       payload_len = data.length + (@opts[:transport] == :tcp ? 20 : 8) + 20
       ret << "\x45\x00#{itons(payload_len)}"     # IP version, ToS, length
-      ret << "#{itons(rand(65536))}\x00\x00\x40" # ID, fragmentation, TTL
+      ret << "#{itons(@lcg_x)}\x00\x00\x40"      # ID, fragmentation, TTL
       ret << (@opts[:transport] == :tcp ? "\x06" : "\x11")  # Protocol
       ipsum_offset = ret.length
       ret << "\0\0"                              # Checksum placeholder
@@ -234,7 +238,7 @@ class PseudoConn
   end  # of class Connection
 
   def initialize(timestamp, delay)
-    @timestamp = timestamp || Time.now
+    @timestamp = timestamp || Time.at(1234567890)
     @delay = delay || 0.01
     @body = String.new
   end
@@ -245,6 +249,14 @@ class PseudoConn
     pc.instance_eval &blk
     pc.to_pcap
   end
+
+  def PseudoConn.test_case(timestamp = nil, delay = nil, &blk)
+    pc = PseudoConn.new(timestamp, delay)
+    raise ArgumentError, 'PseudoConn::pcap() block not supplied' unless blk
+    pc.instance_eval &blk
+    print(pc.to_pcap)
+    true
+  end    
 
   def insert_delay(sec)
     @timestamp += sec.to_f

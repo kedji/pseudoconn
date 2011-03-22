@@ -162,8 +162,8 @@ class PseudoConn
           pos += 2
         end
         checksum = checksum ^ 0xFFFF
-        ret[tcpsum_offset] = (checksum >> 8)
-        ret[tcpsum_offset + 1] = (checksum & 0xFF)
+        ret[tcpsum_offset] = (checksum >> 8).chr
+        ret[tcpsum_offset + 1] = (checksum & 0xFF).chr
 
       # UDP header
       else
@@ -185,8 +185,8 @@ class PseudoConn
         pos += 2
       end
       checksum = checksum ^ 0xFFFF
-      ret[ipsum_offset] = (checksum >> 8)
-      ret[ipsum_offset + 1] = (checksum & 0xFF)
+      ret[ipsum_offset] = (checksum >> 8).chr
+      ret[ipsum_offset + 1] = (checksum & 0xFF).chr
 
       # Frame header
       @owner.timestamp += (@owner.delay.to_f)

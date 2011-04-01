@@ -3,16 +3,18 @@
 # This class provides a simple scripting interface to simulating client/server
 # network traffic over TCP or UDP.
 
+require 'ipaddr'
+
 class PseudoConn
 
   # This class holds everything necessary to manage a single TCP or UDP
-  # connection.
+  # connection over IPv4 or IPv6.
   class Connection
 
     DEFAULTS = { :transport => :tcp, :ack => false, :mtu => 1500,
-                 :src_port => nil, :src_seq => nil,
-                 :dst_port => nil, :dst_seq => nil,
-                 :src_mac => nil, :dst_mac => nil,
+                 :src_port => 23456, :src_seq => 0x0FFFFFFF,
+                 :dst_port => 1025, :dst_seq => 0x7FFFFFFF, :ipv6 => false,
+                 :src_mac => "AA\0\0BB", :dst_mac => "CC\0\0DD",
                  :src_ip => "10.0.0.1", :dst_ip => "42.13.37.80" }
     LCG_A = 1664525
     LCG_C = 1013904223
@@ -46,21 +48,31 @@ class PseudoConn
         res[k] = v
       end
 
-      # Solidify the option hash in our fledgling object, initializing
-      # particular empty values as necessary
-      res[:src_port] ||= 23456
-      res[:dst_port] ||= 1025
-      res[:src_seq] ||= 0x0FFFFFFF
-      res[:dst_seq] ||= 0x7FFFFFFF
-      res[:src_mac] ||= "AA\0\0BB"
-      res[:dst_mac] ||= "CC\0\0DD"
-
-      # Accept IP addresses in dotted-quad notation
-      if res[:src_ip].split('.').length == 4
-        res[:src_ip] = res[:src_ip].split('.').collect { |x| x.to_i.chr }.join
+      # Accept IP addresses as IPAddr objects, strings, or integers.
+      if res[:src_ip].class <= Integer or res[:src_ip].class <= IPAddr
+        res[:src_ip] = IPAddr.new(res[:src_ip], (res[:ipv6] ? 10 : 2))
+      elsif res[:src_ip].class <= String
+        res[:src_ip] = IPAddr.new(res[:src_ip])
+      else
+        raise "Invalid format for src IP address: #{res[:src_ip].class}"
       end
-      if res[:dst_ip].split('.').length == 4
-        res[:dst_ip] = res[:dst_ip].split('.').collect { |x| x.to_i.chr }.join
+      if res[:dst_ip].class <= Integer or res[:dst_ip].class <= IPAddr
+        res[:dst_ip] = IPAddr.new(res[:dst_ip], (res[:ipv6] ? 10 : 2))
+      elsif res[:dst_ip].class <= String
+        res[:dst_ip] = IPAddr.new(res[:dst_ip])
+      else
+        raise "Invalid format for dst IP address: #{res[:dst_ip].class}"
+      end
+      res[:ipv6] = true if res[:src_ip].family == 10 or
+                           res[:dst_ip].family == 10
+
+      # Put the IP addresses (either v4 or v6) in host byte order
+      if res[:ipv6]
+        res[:src_ip] = iton128(res[:src_ip].to_i)
+        res[:dst_ip] = iton128(res[:dst_ip].to_i)
+      else
+        res[:src_ip] = itonl(res[:src_ip].to_i)
+        res[:dst_ip] = itonl(res[:dst_ip].to_i)
       end
       res
     end
@@ -101,13 +113,19 @@ class PseudoConn
 
     def frame(direction, data, *flags)
       data ||= ''
+      ipsum_offset = nil
 
       # Recursively segment the data as needed
       hdr_length = 14 + 20 + (@opts[:transport] == :tcp ? 20 : 8)
+      hdr_length += 20 if @opts[:ipv6]   # IPv6 header is 40 bytes, not 20
       if data.length + hdr_length > @opts[:mtu]
         split_len = @opts[:mtu] - hdr_length
-        return frame(direction, data[0, split_len], *flags) +
-               frame(direction, data[split_len..-1], *flags)
+        pieces = (data.length + split_len - 1) / split_len
+        ret = ''
+        pieces.times do |i|
+          ret << frame(direction, data[split_len * i, split_len], *flags)
+        end
+        return ret
       end
 
       # Set our direction property
@@ -119,17 +137,34 @@ class PseudoConn
       end
 
       # Ethernet header
-      ret = @mac[dst] + @mac[src] + "\x08\x00"   # src MAC, dst MAC, protocol
+      ret = @mac[dst] + @mac[src]    # src MAC, dst MAC
+      if @opts[:ipv6]
+        ret << "\x86\xdd"
+      else
+        ret << "\x08\x00"
+      end
 
-      # IP header
-      @lcg_x = (LCG_A * @lcg_x + LCG_C) & 0xFFFFFFFF
-      payload_len = data.length + (@opts[:transport] == :tcp ? 20 : 8) + 20
-      ret << "\x45\x00#{itons(payload_len)}"     # IP version, ToS, length
-      ret << "#{itons(@lcg_x)}\x00\x00\x40"      # ID, fragmentation, TTL
-      ret << (@opts[:transport] == :tcp ? "\x06" : "\x11")  # Protocol
-      ipsum_offset = ret.length
-      ret << "\0\0"                              # Checksum placeholder
-      ret << "#{@ip[src]}#{@ip[dst]}"            # IP addresses
+      # IPv6 Header
+      if @opts[:ipv6]
+        payload_len = data.length + (@opts[:transport] == :tcp ? 20 : 8)
+        ret << "\x60\x00\x00\x00"            # IP version, Class, Flow Label
+        ret << "#{itons(payload_len)}"       # Payload length
+        ret << (@opts[:transport] == :tcp ? "\x06" : "\x11")  # Protocol
+        ret << "\x40"                        # Hop limit (TTL)
+        ipsum_offset = ret.length
+        ret << "#{@ip[src]}#{@ip[dst]}"      # IP addresses
+        
+      # IPv4 header
+      else
+        @lcg_x = (LCG_A * @lcg_x + LCG_C) & 0xFFFFFFFF
+        payload_len = data.length + (@opts[:transport] == :tcp ? 20 : 8) + 20
+        ret << "\x45\x00#{itons(payload_len)}"     # IP version, ToS, length
+        ret << "#{itons(@lcg_x)}\x00\x00\x40"      # ID, fragmentation, TTL
+        ret << (@opts[:transport] == :tcp ? "\x06" : "\x11")  # Protocol
+        ipsum_offset = ret.length
+        ret << "\0\0"                              # Checksum placeholder
+        ret << "#{@ip[src]}#{@ip[dst]}"            # IP addresses
+      end
     
       # TCP header
       if @opts[:transport] == :tcp
@@ -178,19 +213,22 @@ class PseudoConn
         ret << data
       end
 
-      # Go back now and compute the IP checksum
-      pos, checksum = 14, 0
-      while pos < 34
-        checksum += (ret[pos] << 8) + ret[pos + 1];
-        if checksum > 0xFFFF
-          checksum += 1
-          checksum &= 0xFFFF
+      # Go back now and compute the IP checksum (unless we're using IPv6,
+      # which doesn't have a checksum)
+      unless @opts[:ipv6]
+        pos, checksum = 14, 0
+        while pos < 34
+          checksum += (ret[pos] << 8) + ret[pos + 1];
+          if checksum > 0xFFFF
+            checksum += 1
+            checksum &= 0xFFFF
+          end
+          pos += 2
         end
-        pos += 2
+        checksum = checksum ^ 0xFFFF
+        ret[ipsum_offset] = (checksum >> 8).chr
+        ret[ipsum_offset + 1] = (checksum & 0xFF).chr
       end
-      checksum = checksum ^ 0xFFFF
-      ret[ipsum_offset] = (checksum >> 8).chr
-      ret[ipsum_offset + 1] = (checksum & 0xFF).chr
 
       # Frame header
       @owner.timestamp += (@owner.delay.to_f)
@@ -233,6 +271,12 @@ class PseudoConn
     def itonl(num)
       ((num >> 24) & 0xFF).chr + ((num >> 16) & 0xFF).chr +
       ((num >> 8) & 0xFF).chr + (num & 0xFF).chr
+    end
+
+    def iton128(num)
+      ret = ''
+      16.times { ret = (num & 0xFF).chr + ret ; num >>= 8 }
+      ret
     end
 
   end  # of class Connection

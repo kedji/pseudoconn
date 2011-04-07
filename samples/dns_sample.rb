@@ -25,6 +25,9 @@ pcap = PseudoConn.pcap do
 
   # Perform a query and get an answer in one call.
   dns_lookup('www.sample.com', '6.7.8.9')
+
+  # Peform a query, get back an NX domain
+  dns_lookup('www.this.host.aint.real.org', nil)
 end
 
 File.open('sample.pcap', 'w') { |f| f.print pcap }

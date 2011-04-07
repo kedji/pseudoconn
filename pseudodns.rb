@@ -22,13 +22,13 @@ class PseudoConn
   class Connection
 
     def dns_lookup(qname, answers, qtype = PSEUDO_DNS_A, id = nil)
-      id ||= rand(2**16)
+      id ||= (@owner.pseudo_rand() & 0xFFFF)
       dns_query(qname, qtype, id)
       dns_answer(qname, answers, qtype, id)
     end
 
     def dns_query(qname, qtype = PSEUDO_DNS_A, id = nil)
-      id ||= rand(2**16)
+      id ||= (@owner.pseudo_rand() & 0xFFFF)
       flags = 0x0100
       query = itons(id) + itons(flags) + itons(1) + itons(0) +
               itons(0) + itons(0)
@@ -38,21 +38,28 @@ class PseudoConn
     end
 
     def dns_answer(qname, answers, qtype = PSEUDO_DNS_A, id = nil)
-      id ||= rand(2**16)
+      id ||= (@owner.pseudo_rand() & 0xFFFF)
       flags = 0x8180
       priority = 100
 
-      # Special case - if they just give one value, it's an answer
-      answers = [ answers ] unless answers.class <= Array
+      if answers
+        # Special case - if they just give one value, it's an answer
+        answers = [ answers ] unless answers.class <= Array
 
-      # If they give us an array with either 2 or 3 values, it may be an
-      # array of independent answers, or it could be an array describing - in
-      # detail - a single answer.  If the second element is a record type (an
-      # integer), assume it's one detailed answer.  Otherwise assume it's
-      # an array of answers.
-      if (answers.length == 2 or answers.length == 3) and
-         answers[1].class <= Integer
-        answers = [ answers ]
+        # If they give us an array with either 2 or 3 values, it may be an
+        # array of independent answers, or it could be an array describing - in
+        # detail - a single answer.  If the second element is a record type (an
+        # integer), assume it's one detailed answer.  Otherwise assume it's
+        # an array of answers.
+        if (answers.length == 2 or answers.length == 3) and
+           answers[1].class <= Integer
+          answers = [ answers ]
+        end
+
+      # If no answers are provided, this is an NX domain
+      else
+        flags += 3
+        answers = []
       end
 
       # Construct the header and the query field

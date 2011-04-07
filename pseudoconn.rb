@@ -12,15 +12,11 @@ class PseudoConn
   class Connection
 
     DEFAULTS = { :transport => :tcp, :ack => false, :mtu => 1500,
-                 :src_port => 23456, :src_seq => 0x0FFFFFFF,
+                 :src_port => nil, :src_seq => 0x0FFFFFFF,
                  :dst_port => 1025, :dst_seq => 0x7FFFFFFF, :ipv6 => false,
                  :src_mac => "AA\0\0BB", :dst_mac => "CC\0\0DD",
                  :src_ip => "10.0.0.1", :dst_ip => "42.13.37.80" }
-    LCG_A = 1664525
-    LCG_C = 1013904223
-
     def initialize(owner, *opts, &blk)
-      @lcg_x = 0xabcd1337
       @owner = owner
       @opts = merge_opts(DEFAULTS, opts.first)
       choose_sides
@@ -47,6 +43,7 @@ class PseudoConn
         raise ArgumentError, "Invalid option - #{k}" unless res.include?(k)
         res[k] = v
       end
+      res[:src_port] ||= ((@owner.pseudo_rand() & 0x3FFF) + 1025)
 
       # Accept IP addresses as IPAddr objects, strings, or integers.
       if res[:src_ip].class <= Integer or res[:src_ip].class <= IPAddr
@@ -156,10 +153,10 @@ class PseudoConn
         
       # IPv4 header
       else
-        @lcg_x = (LCG_A * @lcg_x + LCG_C) & 0xFFFFFFFF
+        frag_id = @owner.pseudo_rand() & 0xFFFF
         payload_len = data.length + (@opts[:transport] == :tcp ? 20 : 8) + 20
         ret << "\x45\x00#{itons(payload_len)}"     # IP version, ToS, length
-        ret << "#{itons(@lcg_x)}\x00\x00\x40"      # ID, fragmentation, TTL
+        ret << "#{itons(frag_id)}\x00\x00\x40"     # ID, fragmentation, TTL
         ret << (@opts[:transport] == :tcp ? "\x06" : "\x11")  # Protocol
         ipsum_offset = ret.length
         ret << "\0\0"                              # Checksum placeholder
@@ -315,6 +312,18 @@ class PseudoConn
                "\x00\x00\x00\x00\x00\x00\x00\x00" +
                "\xff\xff\x00\x00\x01\x00\x00\x00"
     return pcap_hdr + @body
+  end
+
+  # Generate a "random" 64-bit number.  Repeatable, not secure
+  LCG_A = 6364136223846793005
+  LCG_C = 1442695040888963407
+  def pseudo_rand(seed = nil)
+    if seed
+      @rand_seed = seed
+    else
+      @rand_seed ||= 2147483587
+    end
+    @rand_seed = (@rand_seed * LCG_A + LCG_C) % 2**64
   end
 
   attr_accessor :body, :timestamp, :delay

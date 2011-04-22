@@ -27,7 +27,7 @@ class PseudoConn
       (opt_list.first || {}).each { |k,v| opts[k] = v }
 
       # Build our request headers
-      req_headers = opts[:req_headers]
+      req_headers = opts[:req_headers].dup
       if opts[:keepalive]
         req_headers['Keep-Alive'] ||= opts[:keepalive]
         req_headers['Connection'] ||= 'keep-alive'
@@ -54,7 +54,7 @@ class PseudoConn
       opts[:chunked] = true if opts[:res].class <= Array
 
       # Now build our response headers
-      res_headers = opts[:res_headers]
+      res_headers = opts[:res_headers].dup
       if opts[:keepalive]
         res_headers['Connection'] ||= 'Keep-Alive'
       end

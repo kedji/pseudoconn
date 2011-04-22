@@ -33,7 +33,7 @@ class PseudoConn
         req_headers['Connection'] ||= 'keep-alive'
       end
       if opts[:req] && opts[:req].length > 0
-        req_headers['Content-Length'] = opts[:req].length
+        req_headers['Content-Length'] ||= opts[:req].length
       end
 
       # Issue the request
@@ -61,7 +61,7 @@ class PseudoConn
       if opts[:chunked]
         res_headers['Transfer-Encoding'] = 'chunked'
       elsif opts[:res] && opts[:res].length > 0
-        res_headers['Content-Length'] = opts[:res].length
+        res_headers['Content-Length'] ||= opts[:res].length
       end
       unless opts[:reason]
         opts[:reason] = case opts[:status].to_i

@@ -43,7 +43,9 @@ class PseudoConn
         raise ArgumentError, "Invalid option - #{k}" unless res.include?(k)
         res[k] = v
       end
-      res[:src_port] ||= ((@owner.pseudo_rand() & 0x3FFF) + 1025)
+      
+      res[:src_port] ||= ((@owner.random[:src_port].pseudo_rand() & 0x3FFF) +
+                          1025)
 
       # Accept IP addresses as IPAddr objects, strings, or integers.
       if res[:src_ip].class <= Integer or res[:src_ip].class <= IPAddr
@@ -153,7 +155,8 @@ class PseudoConn
         
       # IPv4 header
       else
-        frag_id = @owner.pseudo_rand() & 0xFFFF
+        @random_fragment_id ||= PseudoConn::PseudoRand.new(2)
+        frag_id = @owner.random[:ip_id].pseudo_rand() & 0xFFFF
         payload_len = data.length + (@opts[:transport] == :tcp ? 20 : 8) + 20
         ret << "\x45\x00#{itons(payload_len)}"     # IP version, ToS, length
         ret << "#{itons(frag_id)}\x00\x00\x40"     # ID, fragmentation, TTL
@@ -278,10 +281,28 @@ class PseudoConn
 
   end  # of class Connection
 
+  # Deterministic pseudorandom number generator.  Not secure
+  class PseudoRand
+    LCG_A = 6364136223846793005
+    LCG_C = 1442695040888963407
+
+    def initialize(seed = 2147483587)
+      @seed = seed
+    end
+
+    def pseudo_rand()
+      @seed = (@seed * LCG_A + LCG_C) % 2**64
+    end
+
+  end  # of class PseudoRand
+      
   def initialize(timestamp, delay)
     @timestamp = timestamp || Time.at(1234567890)
     @delay = delay || 0.01
     @body = String.new
+    @random = {}
+    @random[:src_port] = PseudoRand.new(1)
+    @random[:ip_id] = PseudoRand.new(2)
   end
 
   def PseudoConn.pcap(timestamp = nil, delay = nil, &blk)
@@ -314,19 +335,7 @@ class PseudoConn
     return pcap_hdr + @body
   end
 
-  # Generate a "random" 64-bit number.  Repeatable, not secure
-  LCG_A = 6364136223846793005
-  LCG_C = 1442695040888963407
-  def pseudo_rand(seed = nil)
-    if seed
-      @rand_seed = seed
-    else
-      @rand_seed ||= 2147483587
-    end
-    @rand_seed = (@rand_seed * LCG_A + LCG_C) % 2**64
-  end
-
-  attr_accessor :body, :timestamp, :delay
+  attr_accessor :body, :timestamp, :delay, :random
 
 end  # of class PseudoConn
 

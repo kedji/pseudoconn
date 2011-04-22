@@ -18,17 +18,20 @@ class PseudoConn
   PSEUDO_DNS_PTR    = 0x0c
   PSEUDO_DNS_MX     = 0x0f
   PSEUDO_DNS_TXT    = 0x10
+  PSEUDO_DNS_AAAA   = 0x1c
 
   class Connection
 
     def dns_lookup(qname, answers, qtype = PSEUDO_DNS_A, id = nil)
-      id ||= (@owner.pseudo_rand() & 0xFFFF)
+      @owner.random[:dns_id] ||= PseudoRand.new(0x4a1d)
+      id ||= (@owner.random[:dns_id].pseudo_rand() & 0xFFFF)
       dns_query(qname, qtype, id)
       dns_answer(qname, answers, qtype, id)
     end
 
     def dns_query(qname, qtype = PSEUDO_DNS_A, id = nil)
-      id ||= (@owner.pseudo_rand() & 0xFFFF)
+      @owner.random[:dns_id] ||= PseudoRand.new(0x4a1d)
+      id ||= (@owner.random[:dns_id].pseudo_rand() & 0xFFFF)
       flags = 0x0100
       query = itons(id) + itons(flags) + itons(1) + itons(0) +
               itons(0) + itons(0)
@@ -38,7 +41,8 @@ class PseudoConn
     end
 
     def dns_answer(qname, answers, qtype = PSEUDO_DNS_A, id = nil)
-      id ||= (@owner.pseudo_rand() & 0xFFFF)
+      @owner.random[:dns_id] ||= PseudoRand.new(0x4a1d)
+      id ||= (@owner.random[:dns_id].pseudo_rand() & 0xFFFF)
       flags = 0x8180
       priority = 100
 
@@ -51,7 +55,7 @@ class PseudoConn
         # detail - a single answer.  If the second element is a record type (an
         # integer), assume it's one detailed answer.  Otherwise assume it's
         # an array of answers.
-        if (answers.length == 2 or answers.length == 3) and
+        if (answers.length >= 2) and
            answers[1].class <= Integer
           answers = [ answers ]
         end
@@ -72,26 +76,36 @@ class PseudoConn
       answers.each do |ans|
         ans = [ ans ] unless ans.class <= Array
         ip = nil
-        if ans.first.to_s =~ /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/
+        if ans.first.to_s =~ /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/ or
+           ans.first.to_s =~ /^[0-9A-Fa-f\:]{3,39}$/
           ip = (IPAddr.new(ans.first.to_s) rescue nil)
         end
 
-        # If this is a valid IPv4 address, assume this is an A-type recrd.  If
-        # the query type is PTR, assume CNAME.  Otherwise assume a TXT record.
-        if ip
-          ans << PSEUDO_DNS_A
-        elsif qtype == PSEUDO_DNS_PTR
-          ans << PSEUDO_DNS_CNAME
-        else
-          ans << PSEUDO_DNS_TXT
+        # If this is a valid IP address, assume this is an A or AAAA record. If
+        # the query type is PTR, assume CNAME. Otherwise assume a TXT record.
+        if ans.length < 2
+          if ip.class <= IPAddr and ip.ipv4?
+            ans << PSEUDO_DNS_A
+          elsif ip.class <= IPAddr and ip.ipv6?
+            ans << PSEUDO_DNS_AAAA
+          elsif qtype == PSEUDO_DNS_PTR
+            ans << PSEUDO_DNS_CNAME
+          else
+            ans << PSEUDO_DNS_TXT
+          end
         end
         ans << 86400 if ans.length < 3
+        ans << qname if ans.length < 4
 
         # Construct the answer based on its record type.
-        answer << itons(0xc00c)   # answer name (always same as qname for now)
-        answer << itons(ans[1])   # answer type
-        answer << itons(1)        # answer class (IPv4 for now)
-        answer << itonl(ans[2])   # ttl
+        if ans[3] == qname
+          answer << itons(0xc00c)          # pointer back to original qname
+        else
+          answer << label_encode(ans[3])   # answer name
+        end
+        answer << itons(ans[1])            # answer type
+        answer << itons(1)                 # answer class (IPv4 for now)
+        answer << itonl(ans[2])            # ttl
         data = ans[0]
         case ans[1]
           when PSEUDO_DNS_A:
@@ -105,6 +119,8 @@ class PseudoConn
             data = itons(priority) + label_encode(data)
             data[-1,1] = ''
             priority += 100
+          when PSEUDO_DNS_AAAA:
+            data = iton128(ip.to_i)
         end
         answer << itons(data.length)
         answer << data

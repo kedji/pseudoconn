@@ -67,11 +67,11 @@ class PseudoConn
 
       # Put the IP addresses (either v4 or v6) in host byte order
       if res[:ipv6]
-        res[:src_ip] = iton128(res[:src_ip].to_i)
-        res[:dst_ip] = iton128(res[:dst_ip].to_i)
+        res[:src_ip] = res[:src_ip].hton
+        res[:dst_ip] = res[:dst_ip].hton
       else
-        res[:src_ip] = itonl(res[:src_ip].to_i)
-        res[:dst_ip] = itonl(res[:dst_ip].to_i)
+        res[:src_ip] = res[:src_ip].hton
+        res[:dst_ip] = res[:dst_ip].hton
       end
       res
     end
@@ -271,12 +271,6 @@ class PseudoConn
     def itonl(num)
       ((num >> 24) & 0xFF).chr + ((num >> 16) & 0xFF).chr +
       ((num >> 8) & 0xFF).chr + (num & 0xFF).chr
-    end
-
-    def iton128(num)
-      ret = ''
-      16.times { ret = (num & 0xFF).chr + ret ; num >>= 8 }
-      ret
     end
 
   end  # of class Connection

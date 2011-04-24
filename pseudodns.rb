@@ -109,7 +109,7 @@ class PseudoConn
         data = ans[0]
         case ans[1]
           when PSEUDO_DNS_A:
-            data = itonl(ip.to_i)
+            data = ip.hton
           when PSEUDO_DNS_CNAME:
             data = label_encode(data)
           when PSEUDO_DNS_TXT:
@@ -120,7 +120,7 @@ class PseudoConn
             data[-1,1] = ''
             priority += 100
           when PSEUDO_DNS_AAAA:
-            data = iton128(ip.to_i)
+            data = ip.hton
         end
         answer << itons(data.length)
         answer << data

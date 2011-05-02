@@ -89,7 +89,7 @@ class PseudoConn
           elsif ip.class <= IPAddr and ip.ipv6?
             ans << PSEUDO_DNS_AAAA
           elsif qtype == PSEUDO_DNS_PTR
-            ans << PSEUDO_DNS_CNAME
+            ans << PSEUDO_DNS_PTR
           else
             ans << PSEUDO_DNS_TXT
           end
@@ -111,6 +111,8 @@ class PseudoConn
           when PSEUDO_DNS_A:
             data = ip.hton
           when PSEUDO_DNS_CNAME:
+            data = label_encode(data)
+          when PSEUDO_DNS_PTR:
             data = label_encode(data)
           when PSEUDO_DNS_TXT:
             data = label_encode(data)

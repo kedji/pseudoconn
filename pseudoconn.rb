@@ -48,18 +48,18 @@ class PseudoConn
                           1025)
 
       # Accept IP addresses as IPAddr objects, strings, or integers.
-      if res[:src_ip].class <= Integer or res[:src_ip].class <= IPAddr
+      if res[:src_ip].class <= Integer
         res[:src_ip] = IPAddr.new(res[:src_ip], (res[:ipv6] ? 10 : 2))
       elsif res[:src_ip].class <= String
         res[:src_ip] = IPAddr.new(res[:src_ip])
-      else
+      elsif res[:src_ip].class != IPAddr
         raise "Invalid format for src IP address: #{res[:src_ip].class}"
       end
-      if res[:dst_ip].class <= Integer or res[:dst_ip].class <= IPAddr
+      if res[:dst_ip].class <= Integer
         res[:dst_ip] = IPAddr.new(res[:dst_ip], (res[:ipv6] ? 10 : 2))
       elsif res[:dst_ip].class <= String
         res[:dst_ip] = IPAddr.new(res[:dst_ip])
-      else
+      elsif res[:dst_ip].class != IPAddr
         raise "Invalid format for dst IP address: #{res[:dst_ip].class}"
       end
       res[:ipv6] = true if res[:src_ip].family == 10 or

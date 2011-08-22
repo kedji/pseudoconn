@@ -108,21 +108,21 @@ class PseudoConn
         answer << itonl(ans[2])            # ttl
         data = ans[0]
         case ans[1]
-          when PSEUDO_DNS_A:
-            data = ip.hton
-          when PSEUDO_DNS_CNAME:
+          when PSEUDO_DNS_A then
+            data = itonl(ip.to_i)
+          when PSEUDO_DNS_CNAME then
             data = label_encode(data)
-          when PSEUDO_DNS_PTR:
+          when PSEUDO_DNS_PTR then
             data = label_encode(data)
-          when PSEUDO_DNS_TXT:
+          when PSEUDO_DNS_TXT then
             data = label_encode(data)
             data[-1,1] = ''
-          when PSEUDO_DNS_MX:
+          when PSEUDO_DNS_MX then
             data = itons(priority) + label_encode(data)
             data[-1,1] = ''
             priority += 100
-          when PSEUDO_DNS_AAAA:
-            data = ip.hton
+          when PSEUDO_DNS_AAAA then
+            data = iton128(ip.to_i)
         end
         answer << itons(data.length)
         answer << data

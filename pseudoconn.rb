@@ -49,14 +49,14 @@ class PseudoConn
 
       # Accept IP addresses as IPAddr objects, strings, or integers.
       if res[:src_ip].class <= Integer
-        res[:src_ip] = IPAddr.new(res[:src_ip], (res[:ipv6] ? 10 : 2))
+        res[:src_ip] = IPAddr.new(res[:src_ip].to_i, (res[:ipv6] ? 10 : 2))
       elsif res[:src_ip].class <= String
         res[:src_ip] = IPAddr.new(res[:src_ip])
       elsif res[:src_ip].class != IPAddr
         raise "Invalid format for src IP address: #{res[:src_ip].class}"
       end
       if res[:dst_ip].class <= Integer
-        res[:dst_ip] = IPAddr.new(res[:dst_ip], (res[:ipv6] ? 10 : 2))
+        res[:dst_ip] = IPAddr.new(res[:dst_ip].to_i, (res[:ipv6] ? 10 : 2))
       elsif res[:dst_ip].class <= String
         res[:dst_ip] = IPAddr.new(res[:dst_ip])
       elsif res[:dst_ip].class != IPAddr
@@ -67,11 +67,11 @@ class PseudoConn
 
       # Put the IP addresses (either v4 or v6) in host byte order
       if res[:ipv6]
-        res[:src_ip] = res[:src_ip].hton
-        res[:dst_ip] = res[:dst_ip].hton
+        res[:src_ip] = iton128(res[:src_ip].to_i)
+        res[:dst_ip] = iton128(res[:dst_ip].to_i)
       else
-        res[:src_ip] = res[:src_ip].hton
-        res[:dst_ip] = res[:dst_ip].hton
+        res[:src_ip] = itonl(res[:src_ip].to_i)
+        res[:dst_ip] = itonl(res[:dst_ip].to_i)
       end
       res
     end
@@ -193,7 +193,7 @@ class PseudoConn
         checksum = 26 + data.length
         pos = ipsum_offset + 2
         while pos < ret.length do
-          checksum += (ret[pos] << 8) + (ret[pos+1] || 0)
+          checksum += (ret[pos].ord << 8) + (ret[pos+1] || 0).ord
           if checksum > 0xFFFF
             checksum += 1
             checksum &= 0xFFFF
@@ -211,6 +211,7 @@ class PseudoConn
         ret << ((data.length + 8) & 0xFF).chr
         ret << "\x00\x00"                    # zero out the checksum
         ret << data
+        ret.encode('binary')
       end
 
       # Go back now and compute the IP checksum (unless we're using IPv6,
@@ -218,7 +219,7 @@ class PseudoConn
       unless @opts[:ipv6]
         pos, checksum = 14, 0
         while pos < 34
-          checksum += (ret[pos] << 8) + ret[pos + 1];
+          checksum += (ret[pos].ord << 8) + ret[pos + 1].ord;
           if checksum > 0xFFFF
             checksum += 1
             checksum &= 0xFFFF
@@ -271,6 +272,12 @@ class PseudoConn
     def itonl(num)
       ((num >> 24) & 0xFF).chr + ((num >> 16) & 0xFF).chr +
       ((num >> 8) & 0xFF).chr + (num & 0xFF).chr
+    end
+
+    def iton128(num)
+      ret = ''
+      16.times { ret = (num & 0xFF).chr + ret ; num >>= 8 }
+      ret
     end
 
   end  # of class Connection

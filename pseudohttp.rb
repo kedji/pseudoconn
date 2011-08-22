@@ -65,18 +65,18 @@ class PseudoConn
       end
       unless opts[:reason]
         opts[:reason] = case opts[:status].to_i
-          when 100: 'Continue'
-          when 200: 'OK'
-          when 204: 'No Content'
-          when 206: 'Partial Content'   # not implemented yet
-          when 301: 'Moved Permanently'
-          when 304: 'Not Modified'
-          when 307: 'Temporary Redirect'
-          when 400: 'Bad Request'
-          when 403: 'Forbidden'
-          when 500: 'Internal Server Error'
-          when 501: 'Not Implemented'
-          else ; 'Received'
+          when 100 then 'Continue'
+          when 200 then 'OK'
+          when 204 then 'No Content'
+          when 206 then 'Partial Content'   # not implemented yet
+          when 301 then 'Moved Permanently'
+          when 304 then 'Not Modified'
+          when 307 then 'Temporary Redirect'
+          when 400 then 'Bad Request'
+          when 403 then 'Forbidden'
+          when 500 then 'Internal Server Error'
+          when 501 then 'Not Implemented'
+          else 'Received'
         end
       end
 

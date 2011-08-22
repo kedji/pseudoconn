@@ -15,7 +15,7 @@ class PseudoConn
                  :src_port => nil, :src_seq => 0x0FFFFFFF,
                  :dst_port => 1025, :dst_seq => 0x7FFFFFFF, :ipv6 => false,
                  :src_mac => "AA\0\0BB", :dst_mac => "CC\0\0DD",
-                 :src_ip => "10.0.0.1", :dst_ip => "42.13.37.80" }
+                 :src_ip => "10.0.0.1", :dst_ip => "42.13.37.80", :vlan => nil }
     def initialize(owner, *opts, &blk)
       @owner = owner
       @opts = merge_opts(DEFAULTS, opts.first)
@@ -114,7 +114,7 @@ class PseudoConn
       data ||= ''
       ipsum_offset = nil
 
-      # Recursively segment the data as needed
+      # Segment the data as needed
       hdr_length = 14 + 20 + (@opts[:transport] == :tcp ? 20 : 8)
       hdr_length += 20 if @opts[:ipv6]   # IPv6 header is 40 bytes, not 20
       if data.length + hdr_length > @opts[:mtu]
@@ -143,8 +143,20 @@ class PseudoConn
         ret << "\x08\x00"
       end
 
+      # VLAN header(s)
+      if @opts[:vlan]
+        tag = "\x81\x00"
+        [ @opts[:vlan] ].flatten.each do |vlan|
+          ret = ret[0...-2] + tag + itons(vlan) + ret[-2,2]
+          tag = "\x91\x00"
+        end
+      end
+
       # IPv6 Header
+      ip_header_start = ret.length
+      ip_header_length = 20
       if @opts[:ipv6]
+        ip_header_length = 40
         payload_len = data.length + (@opts[:transport] == :tcp ? 20 : 8)
         ret << "\x60\x00\x00\x00"            # IP version, Class, Flow Label
         ret << "#{itons(payload_len)}"       # Payload length
@@ -217,8 +229,8 @@ class PseudoConn
       # Go back now and compute the IP checksum (unless we're using IPv6,
       # which doesn't have a checksum)
       unless @opts[:ipv6]
-        pos, checksum = 14, 0
-        while pos < 34
+        pos, checksum = ip_header_start, 0
+        while pos < ip_header_start + ip_header_length
           checksum += (ret[pos].ord << 8) + ret[pos + 1].ord;
           if checksum > 0xFFFF
             checksum += 1

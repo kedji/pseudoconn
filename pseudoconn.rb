@@ -15,7 +15,8 @@ class PseudoConn
                  :src_port => nil, :src_seq => 0x0FFFFFFF,
                  :dst_port => 1025, :dst_seq => 0x7FFFFFFF, :ipv6 => false,
                  :src_mac => "AA\0\0BB", :dst_mac => "CC\0\0DD",
-                 :src_ip => "10.0.0.1", :dst_ip => "42.13.37.80", :vlan => nil }
+                 :src_ip => "10.0.0.1", :dst_ip => "42.13.37.80",
+                 :vlan => nil, :optional_ipv4_header => '' }
     def initialize(owner, *opts, &blk)
       @owner = owner
       @opts = merge_opts(DEFAULTS, opts.first)
@@ -43,7 +44,10 @@ class PseudoConn
         raise ArgumentError, "Invalid option - #{k}" unless res.include?(k)
         res[k] = v
       end
-      
+      if res[:optional_ipv4_header].to_s.length % 4 != 0
+        raise "IP Options must be a multiple of 4 bytes"
+      end
+
       res[:src_port] ||= ((@owner.random[:src_port].pseudo_rand() & 0x3FFF) +
                           1025)
 
@@ -115,9 +119,10 @@ class PseudoConn
       ipsum_offset = nil
 
       # Segment the data as needed
-      hdr_length = 14  # ethernet
-      hdr_length += 4 * [ @opts[:vlan] ].flatten ].length if @opts[:vlan]
-      hdr_length += (@opts[:ipv6] ? 40, 20)
+      hdr_length = 14                          # Ethernet
+      hdr_length += 4 * [ @opts[:vlan] ].flatten.length if @opts[:vlan]
+      hdr_length += @opts[:optional_ipv4_header].length
+      hdr_length += (@opts[:ipv6] ? 40 : 20)
       hdr_length += (@opts[:transport] == :tcp ? 20 : 8)
       if data.length + hdr_length > @opts[:mtu]
         split_len = @opts[:mtu] - hdr_length
@@ -156,7 +161,7 @@ class PseudoConn
 
       # IPv6 Header
       ip_header_start = ret.length
-      ip_header_length = 20
+      ip_header_length = 20 + @opts[:optional_ipv4_header].length
       if @opts[:ipv6]
         ip_header_length = 40
         payload_len = data.length + (@opts[:transport] == :tcp ? 20 : 8)
@@ -171,13 +176,16 @@ class PseudoConn
       else
         @random_fragment_id ||= PseudoConn::PseudoRand.new(2)
         frag_id = @owner.random[:ip_id].pseudo_rand() & 0xFFFF
-        payload_len = data.length + (@opts[:transport] == :tcp ? 20 : 8) + 20
-        ret << "\x45\x00#{itons(payload_len)}"     # IP version, ToS, length
+        payload_len = data.length + (@opts[:transport] == :tcp ? 20 : 8) +
+                      ip_header_length
+        vhl = (0x40 + (ip_header_length / 4)).chr
+        ret << "#{vhl}\x00#{itons(payload_len)}"   # IP version, ToS, length
         ret << "#{itons(frag_id)}\x00\x00\x40"     # ID, fragmentation, TTL
         ret << (@opts[:transport] == :tcp ? "\x06" : "\x11")  # Protocol
         ipsum_offset = ret.length
         ret << "\0\0"                              # Checksum placeholder
         ret << "#{@ip[src]}#{@ip[dst]}"            # IP addresses
+        ret << @opts[:optional_ipv4_header]
       end
     
       # TCP header

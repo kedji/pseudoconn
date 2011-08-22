@@ -115,8 +115,10 @@ class PseudoConn
       ipsum_offset = nil
 
       # Segment the data as needed
-      hdr_length = 14 + 20 + (@opts[:transport] == :tcp ? 20 : 8)
-      hdr_length += 20 if @opts[:ipv6]   # IPv6 header is 40 bytes, not 20
+      hdr_length = 14  # ethernet
+      hdr_length += 4 * [ @opts[:vlan] ].flatten ].length if @opts[:vlan]
+      hdr_length += (@opts[:ipv6] ? 40, 20)
+      hdr_length += (@opts[:transport] == :tcp ? 20 : 8)
       if data.length + hdr_length > @opts[:mtu]
         split_len = @opts[:mtu] - hdr_length
         pieces = (data.length + split_len - 1) / split_len

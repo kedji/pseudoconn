@@ -233,7 +233,7 @@ class PseudoConn
         ret << ((data.length + 8) & 0xFF).chr
         ret << "\x00\x00"                    # zero out the checksum
         ret << data
-        ret.encode('binary')
+        ret.encode('binary') if ret.respond_to?(:encode)
       end
 
       # Go back now and compute the IP checksum (unless we're using IPv6,

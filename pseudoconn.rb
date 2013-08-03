@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# encoding: ASCII-8BIT
 
 # This class provides a simple scripting interface to simulating client/server
 # network traffic over TCP or UDP.
@@ -171,7 +172,7 @@ class PseudoConn
         ret << "\x40"                        # Hop limit (TTL)
         ipsum_offset = ret.length
         ret << "#{@ip[src]}#{@ip[dst]}"      # IP addresses
-        
+
       # IPv4 header
       else
         @random_fragment_id ||= PseudoConn::PseudoRand.new(2)
@@ -187,7 +188,7 @@ class PseudoConn
         ret << "#{@ip[src]}#{@ip[dst]}"            # IP addresses
         ret << @opts[:optional_ipv4_header]
       end
-    
+
       # TCP header
       if @opts[:transport] == :tcp
         ret << "#{itons(@port[src])}#{itons(@port[dst])}"   # ports
@@ -233,7 +234,7 @@ class PseudoConn
         ret << ((data.length + 8) & 0xFF).chr
         ret << "\x00\x00"                    # zero out the checksum
         ret << data
-        ret.encode('binary')
+        ret.respond_to?(:encode) ? ret.encode('binary') : ret
       end
 
       # Go back now and compute the IP checksum (unless we're using IPv6,
@@ -276,7 +277,7 @@ class PseudoConn
     end
     def proto_insert_delay(sec)
       insert_delay(sec)
-    end  
+    end
 
     def itohs(num)
       (num & 0xFF).chr + ((num >> 8) & 0xFF).chr
@@ -318,7 +319,7 @@ class PseudoConn
     end
 
   end  # of class PseudoRand
-      
+
   def initialize(timestamp, delay)
     @timestamp = timestamp || Time.at(1234567890)
     @delay = delay || 0.01
@@ -341,7 +342,7 @@ class PseudoConn
     pc.instance_eval &blk
     print(pc.to_pcap)
     true
-  end    
+  end
 
   def insert_delay(sec)
     @timestamp += sec.to_f
@@ -378,8 +379,9 @@ if __FILE__ == $0
     conn = connection(:ack => true, :dst_port => 1234)
     conn.client "Actually, are you still there?"
     conn.server "Yes?  What??"
-    conn.client "If your'e going to be impatient, forget it."
+    conn.client "If you're going to be impatient, forget it."
     conn.close
   end
   File.open('sample.pcap', 'w') { |f| f.print pcap }
 end
+

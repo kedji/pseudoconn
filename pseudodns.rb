@@ -1,13 +1,12 @@
 #!/usr/bin/env ruby
+# encoding: ASCII-8BIT
 
 # This is the DNS extension to the PseudoConn packet-writing class.  With
 # this script you can quickly create packet captures containing DNS queries
 # and/or responses.  Currently only the IPv4 class is supported
 
 require 'ipaddr'
-
-$LOAD_PATH << File.split(__FILE__).first
-require 'pseudoconn.rb'
+require_relative 'pseudoconn.rb'
 
 class PseudoConn
 
@@ -129,7 +128,7 @@ class PseudoConn
       end
       proto_server(answer)
     end
-    
+
     private
 
     def label_encode(str, pkt = '')

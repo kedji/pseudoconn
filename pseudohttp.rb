@@ -1,10 +1,12 @@
 #!/usr/bin/env ruby
+# encoding: ASCII-8BIT
 
 # This is the HTTP extension to the PseudoConn packet-writing class.  With
 # this script you can quickly create packet captures bearing HTTP transactions.
 
-$LOAD_PATH << File.split(__FILE__).first
-require 'pseudoconn.rb'
+require 'zlib'
+require 'stringio'
+require_relative 'pseudoconn.rb'
 
 class PseudoConn
 
@@ -12,10 +14,16 @@ class PseudoConn
 
     REQ_HEADERS = { 'Host' => 'pseudoconn.com' }
     RES_HEADERS = { }
-    DEFAULT_HTTP = { :verb => 'GET', :keepalive => 300, :req => nil,
+    DEFAULT_HTTP = { :encoding => nil, :verb => 'GET', :keepalive => 300,
                      :res => 'Hello, World!', :req_headers => REQ_HEADERS,
                      :res_headers => RES_HEADERS, :resource => '/',
-                     :status => 200, :reason => nil }
+                     :status => 200, :reason => nil, :req => nil }
+
+    # :encoding - controls HTTP transport compression.
+    #   nil - Disabled.  No content compression or encoding headers.
+    #   :gzip - Server compresses response content with gzip.
+    #   :deflate - Like :gzip but using deflate compression.
+    #   :identity - Encoding headers present, but content not compressed.
 
     def http_transaction(*opt_list)
       http_request(*opt_list)
@@ -35,14 +43,26 @@ class PseudoConn
       if opts[:req] && opts[:req].length > 0
         req_headers['Content-Length'] ||= opts[:req].length
       end
+      if opts[:encoding]
+        req_headers['Accept-Encoding'] ||= 'gzip, deflate, identity'
+      end
 
       # Issue the request
       req = "#{opts[:verb]} #{opts[:resource]} HTTP/1.1\r\n"
-      req_headers.each { |k,v| req << "#{k}: #{v}\r\n" }
+      headers = req_headers.sort { |a,b| a.first <=> b.first }
+      headers.each { |k,v| req << "#{k}: #{v}\r\n" }
       req << "\r\n"
       proto_client(req)
       if opts[:req] && opts[:req].length > 0
-        proto_client(opts[:req])
+        data = case opts[:encoding]
+               when nil       then opts[:req]
+               when :identity then opts[:req]
+               when :deflate  then Zlib::Deflate.deflate(opts[:req])
+               when :gzip     then gzip(opts[:req])
+               else raise(ArgumentError, "compression encoding not " +
+                                         "supported: :#{opts[:encoding]}"
+               end
+        proto_client(data)
       end
     end
 
@@ -61,6 +81,17 @@ class PseudoConn
       if opts[:chunked]
         res_headers['Transfer-Encoding'] = 'chunked'
       elsif opts[:res] && opts[:res].length > 0
+        if opts[:encoding]
+          res_headers['Content-Encoding'] ||= opts[:encoding]
+          opts[:res] = case opts[:encoding]
+            when nil        then opts[:res].to_s
+            when :identity then opts[:res].to_s
+            when :deflate  then Zlib::Deflate.deflate(opts[:res].to_s)
+            when :gzip     then gzip(opts[:res].to_s)
+            else raise(ArgumentError, "compression encoding not " +
+                                      "supported: :#{opts[:encoding]}"
+          end
+        end
         res_headers['Content-Length'] ||= opts[:res].length
       end
       unless opts[:reason]
@@ -82,7 +113,8 @@ class PseudoConn
 
       # Start the response
       res = "HTTP/1.1 #{opts[:status]} #{opts[:reason]}\r\n"
-      res_headers.each { |k,v| res << "#{k}: #{v}\r\n" }
+      headers = res_headers.sort { |a,b| a.first <=> b.first }
+      headers.each { |k,v| res << "#{k}: #{v}\r\n" }
       res << "\r\n"
       proto_server(res)
 
@@ -102,6 +134,20 @@ class PseudoConn
         data = opts[:res].to_s
         proto_server(data) unless data.empty?
       end
+    end
+
+    private
+
+    # Compress a string using gzip.
+    def gzip(plaintext)
+      buffer = ""
+      out = StringIO.open(buffer, "w")
+      z = Zlib::GzipWriter.new(out)
+      z.mtime = Time.at(1234567890)
+      z.write(plaintext)
+      z.close
+      buffer.force_encoding("binary") if buffer.respond_to?(:force_encoding)
+      return buffer
     end
   end
 end

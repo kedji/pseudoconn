@@ -41,7 +41,7 @@ class PseudoStream < PseudoConn
   end  # of Injector class
 
   def PseudoStream.inject(interface = nil, &blk)
-    pc = PStream.new(nil, 0)
+    pc = PseudoStream.new(nil, 0)
     pc.injector = Injector.new(interface, pc.random)
     pc.instance_eval(&blk)
   end

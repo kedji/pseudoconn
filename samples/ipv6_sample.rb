@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
-
-require 'pseudoconn.rb'
+# encoding: ASCII-8bit
+require_relative '../pseudoconn.rb'
 
 pcap = PseudoConn.pcap do
 
@@ -11,4 +11,5 @@ pcap = PseudoConn.pcap do
   end
 end
 
-File.open('sample.pcap', 'w') { |f| f.print pcap }
+fname = "#{File.basename(__FILE__)}.pcap"
+File.open(fname, 'w') { |f| f.print pcap }

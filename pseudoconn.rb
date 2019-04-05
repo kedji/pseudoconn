@@ -322,6 +322,7 @@ class PseudoConn
 
   def initialize(timestamp, delay)
     @timestamp = timestamp || Time.at(1234567890)
+    @timestamp = Time.at(timestamp) if timestamp.class <= Numeric
     @delay = delay || 0.01
     @body = String.new
     @random = {}

@@ -1,9 +1,9 @@
 #!/usr/bin/env ruby
+# encoding: ASCII-8bit
+require_relative '../pseudoconn.rb'
 
 # This sample demonstrates the old-skool way to manage connections.  It's
 # necessary if you need to weave connection data together or inject RST frames.
-
-require 'pseudoconn.rb'
 
 pcap = PseudoConn.pcap do
 
@@ -33,4 +33,5 @@ pcap = PseudoConn.pcap do
   syslog.client("<32>RFB connection was reset")
 end
 
-File.open('sample.pcap', 'w') { |f| f.print pcap }
+fname = "#{File.basename(__FILE__)}.pcap"
+File.open(fname, 'w') { |f| f.print pcap }

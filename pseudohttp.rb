@@ -60,7 +60,7 @@ class PseudoConn
                when :deflate  then Zlib::Deflate.deflate(opts[:req])
                when :gzip     then gzip(opts[:req])
                else raise(ArgumentError, "compression encoding not " +
-                                         "supported: :#{opts[:encoding]}"
+                                         "supported: :#{opts[:encoding]}")
                end
         proto_client(data)
       end
@@ -89,7 +89,7 @@ class PseudoConn
             when :deflate  then Zlib::Deflate.deflate(opts[:res].to_s)
             when :gzip     then gzip(opts[:res].to_s)
             else raise(ArgumentError, "compression encoding not " +
-                                      "supported: :#{opts[:encoding]}"
+                                      "supported: :#{opts[:encoding]}")
           end
         end
         res_headers['Content-Length'] ||= opts[:res].length

@@ -216,16 +216,16 @@ class PseudoConn
       if opt == OPT_CSUBNET
         ip = IPAddr.new(cidr.split('/').first) rescue nil
         return nil unless ip
-        mask = cidr.split('/')[1].to_i
+        mask = cidr.split('/')[1]
         return nil unless mask
-#       return nil unless 0 == mask % 8
+        mask = mask.to_i
         if ip.ipv4?
           family = 1
-          bmask  = (2**32-1) << (32 - mask.to_i)
+          bmask  = (2**32-1) << (32 - mask)
           subnet = itonl(ip.to_i & bmask)
         else # IPv6
           family = 2
-          bmask  = (2**128-1) << (128 - mask.to_i)
+          bmask  = (2**128-1) << (128 - mask)
           subnet = iton128(ip.to_i & bmask)
         end
         data    = itons(family) + mask.chr + 0x00.chr + subnet

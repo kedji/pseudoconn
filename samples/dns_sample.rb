@@ -30,11 +30,19 @@ pcap = PseudoConn.pcap do
   # Perform a query and get an answer in one call.
   dns_lookup('www.sample.com', '6.7.8.9')
 
+  # Perform a query and include EDNS Client Subnet
+  dns_lookup('www.sample.com', '6.7.8.9', src_ip: '1.2.3.4',
+              additional: [PseudoConn::OPT_CSUBNET, PseudoConn::PSEUDO_DNS_OPT, '1.2.3.0/23'])
+
   # Peform a query, get back an NX domain
   dns_lookup('www.this.host.aint.real.org', nil)
 
   # Perform a query, get back an AAAA record
   dns_lookup('www.sample6.com', 'abcd:1234::0001', PseudoConn::PSEUDO_DNS_AAAA)
+
+  # Perform a query and include EDNS Client Subnet (IPv6)
+  dns_lookup('www.sample6.com', 'abcd:1234::0001', PseudoConn::PSEUDO_DNS_AAAA, src_ip: '2001:1234::0001',
+              additional: [PseudoConn::OPT_CSUBNET, PseudoConn::PSEUDO_DNS_OPT, '2001:1234::0000/64'])
 
   # Peform a query, get back responses, the first and third of which contain
   # an rname which differs from the qname
